@@ -2,179 +2,99 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import plotly.express as px
-from datetime import datetime
 
-# --- PAGE CONFIGURATION (Pro Mode) ---
-st.set_page_config(
-    page_title="Velociraptor: Currency Arbitrage Engine", 
-    page_icon="✈️",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+st.set_page_config(page_title="1% Flight Arbitrage Terminal", layout="wide")
 
-# --- CUSTOM CSS (For that "Hacker" look) ---
-st.markdown("""
-<style>
-    .metric-card {
-        background-color: #0e1117;
-        border: 1px solid #30333d;
-        padding: 20px;
-        border-radius: 10px;
-        color: white;
-    }
-    .stSuccess { color: #00ff41 !important; }
-    .stError { color: #ff2b2b !important; }
-</style>
-""", unsafe_allow_html=True)
+st.title("🕵️ Master Currency Loophole Engine (2026 Edition)")
+st.markdown("---")
 
-# --- THE WATCHLIST (Expanded for Volatility) ---
-# We look for currencies that crash often (High Volatility) or are major hubs.
+# THE COMPLETE MASTER LIST
 currencies = {
-    "🇯🇵 JPY (Japan)": "JPYINR=X",
-    "🇹🇷 TRY (Turkey)": "TRYINR=X",
-    "🇦🇷 ARS (Argentina)": "ARSINR=X",
-    "🇪🇬 EGP (Egypt)": "EGPINR=X",
-    "🇮🇩 IDR (Indonesia)": "IDRINR=X",
-    "🇻🇳 VND (Vietnam)": "VNDINR=X",
-    "🇰🇷 KRW (South Korea)": "KRWINR=X",
-    "🇬🇧 GBP (UK)": "GBPINR=X",
-    "🇪🇺 EUR (Europe)": "EURINR=X",
-    "🇨🇦 CAD (Canada)": "CADINR=X",
-    "🇦🇺 AUD (Australia)": "AUDINR=X",
-    "🇦🇪 AED (Dubai)": "AEDINR=X",
-    "🇹🇭 THB (Thailand)": "THBINR=X",
-    "🇧🇷 BRL (Brazil)": "BRLINR=X",
-    "🇿🇦 ZAR (South Africa)": "ZARINR=X",
-    "🇳🇴 NOK (Norway)": "NOKINR=X",
+    "🇺🇸 USD (USA)": "USDINR=X", "🇬🇧 GBP (UK)": "GBPINR=X", "🇪🇺 EUR (Europe)": "EURINR=X",
+    "🇯🇵 JPY (Japan)": "JPYINR=X", "🇹🇷 TRY (Turkey)": "TRYINR=X", "🇦🇷 ARS (Argentina)": "ARSINR=X",
+    "🇪🇬 EGP (Egypt)": "EGPINR=X", "🇦🇪 AED (Dubai)": "AEDINR=X", "🇨🇦 CAD (Canada)": "CADINR=X",
+    "🇦🇺 AUD (Australia)": "AUDINR=X", "🇧🇷 BRL (Brazil)": "BRLINR=X", "🇿🇦 ZAR (South Africa)": "ZARINR=X",
+    "🇻🇳 VND (Vietnam)": "VNDINR=X", "🇳🇴 NOK (Norway)": "NOKINR=X", "🇷🇺 RUB (Russia)": "RUBINR=X",
+    "🇮🇩 IDR (Indonesia)": "IDRINR=X", "🇸🇬 SGD (Singapore)": "SGDINR=X", "🇨🇭 CHF (Swiss)": "CHFINR=X"
 }
 
-# --- ENGINE: FETCH DATA ---
-@st.cache_data(ttl=300)
-def get_market_data():
-    data = []
-    # Bulk fetch for speed
-    tickers = " ".join(currencies.values())
-    history = yf.download(tickers, period="30d", interval="1d", progress=False)['Close']
-    
+@st.cache_data(ttl=600)
+def fetch_elite_data():
+    results = []
     for name, ticker in currencies.items():
         try:
-            # Handle Single vs Multi-index columns from yfinance
-            if isinstance(history, pd.DataFrame) and ticker in history.columns:
-                series = history[ticker]
-            elif isinstance(history, pd.Series): # Fallback if only 1 currency requested
-                series = history
-            else:
-                continue
-
-            current_price = float(series.iloc[-1])
-            avg_price = float(series.mean())
-            
-            # THE ARBITRAGE MATH
-            # Negative % means the currency is weak (Good for you)
-            change_pct = ((current_price - avg_price) / avg_price) * 100
-            
-            # Recommendation Logic
-            signal = "⚪ Neutral"
-            impact = "Normal"
-            
-            if change_pct < -2.0:
-                signal = "🟢 BUY SIGNAL (Crash)"
-                impact = "High Savings"
-            elif change_pct < -0.5:
-                signal = "🟡 Discounted"
-                impact = "Small Savings"
-            elif change_pct > 1.0:
-                signal = "🔴 Avoid (Expensive)"
-                impact = "Loss"
-
-            data.append({
-                "Currency": name,
-                "Rate (₹)": current_price,
-                "30d Avg": avg_price,
-                "Deviation %": change_pct,
-                "Signal": signal,
-                "Ticker": ticker # Hidden column for calculator
-            })
-        except Exception as e:
+            t = yf.Ticker(ticker)
+            # Fetch 1y data to calculate the "Arbitrage Gap" (How much it crashed from peak)
+            hist = t.history(period="1y")
+            if not hist.empty:
+                current_rate = hist['Close'].iloc[-1]
+                year_high = hist['Close'].max()
+                # Arbitrage Gap: If the currency is much cheaper than its 1y high, it's a booking loophole
+                gap = ((year_high - current_rate) / year_high) * 100
+                
+                results.append({
+                    "Currency": name,
+                    "Live Rate (₹)": round(current_rate, 4),
+                    "Arb Gap %": round(gap, 2),
+                    "Status": "🟢 LOOPHOLE" if gap > 10 else "⚪ Stable"
+                })
+        except:
             continue
-            
-    return pd.DataFrame(data)
+    return pd.DataFrame(results)
 
-# --- APP LAYOUT ---
-st.title("✈️ Global Flight Arbitrage Scanner")
-st.markdown("Track currencies that are **crashing** against the INR. If a currency is red/weak, change your payment currency to save money.")
+data_load_state = st.info("🔍 Scanning global markets for mispriced currencies...")
+df = fetch_elite_data()
+data_load_state.empty()
 
-col1, col2 = st.columns([2, 1])
+if not df.empty:
+    # Sort by the biggest Arbitrage Gap
+    df_sorted = df.sort_values(by="Arb Gap %", ascending=False)
+    
+    # --- TOP DASHBOARD ---
+    winner = df_sorted.iloc[0]
+    
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.metric("🏆 WINNER (Lowest INR Cost)", winner['Currency'], f"{winner['Arb Gap %']}% Cheaper")
+    with c2:
+        st.metric("🚀 BEST STABLE (USD)", f"₹{df[df['Currency'] == '🇺🇸 USD (USA)']['Live Rate (₹)'].values[0]}")
+    with c3:
+        st.metric("📉 TOTAL TRACKED", len(df))
 
-# --- LEFT COLUMN: LIVE SCANNER ---
-with col1:
-    if st.button("🔄 Scan Market Now"):
-        st.cache_data.clear()
+    # --- FLIGHT CALCULATOR ---
+    st.markdown("### ✈️ Loophole Savings Calculator")
+    col_a, col_b = st.columns(2)
+    with col_a:
+        ticket_price_inr = st.number_input("Estimated Ticket Price in INR (on Indian sites):", value=50000)
+        selected_loophole = st.selectbox("Select Booking Currency (VPN Region):", df_sorted["Currency"])
     
-    df = get_market_data()
+    target_rate = df[df["Currency"] == selected_loophole]["Live Rate (₹)"].values[0]
+    arb_gap = df[df["Currency"] == selected_loophole]["Arb Gap %"].values[0]
     
-    # Sort by the biggest drop (Best opportunities first)
-    df_sorted = df.sort_values(by="Deviation %", ascending=True)
+    potential_savings = ticket_price_inr * (arb_gap / 100)
     
-    st.dataframe(
-        df_sorted[["Currency", "Rate (₹)", "Signal", "Deviation %"]],
-        column_config={
-            "Deviation %": st.column_config.ProgressColumn(
-                "Arbitrage Gap",
-                format="%.2f%%",
-                min_value=-5,
-                max_value=5,
-            ),
-            "Rate (₹)": st.column_config.NumberColumn(format="%.4f")
-        },
-        use_container_width=True,
-        hide_index=True,
-        height=500
-    )
+    with col_b:
+        st.warning(f"By booking via **{selected_loophole}** site, you could save approx:")
+        st.title(f"₹{potential_savings:,.0f}")
+        st.caption(f"Estimated price via loophole: ₹{ticket_price_inr - potential_savings:,.0f}")
 
-# --- RIGHT COLUMN: THE CALCULATOR ---
-with col2:
-    st.header("🧮 Profit Calculator")
-    st.markdown("Found a cheap flight in **Yen** or **Lira**? Check the real cost here.")
-    
-    # User inputs
-    selected_currency_row = st.selectbox("Select Currency:", df_sorted["Currency"])
-    
-    # Get rate for selected
-    rate = df_sorted[df_sorted["Currency"] == selected_currency_row]["Rate (₹)"].values[0]
-    
-    foreign_price = st.number_input(f"Price in Foreign Currency (e.g. 10,000):", min_value=1.0, value=100.0, step=100.0)
-    
-    # Calculation
-    real_cost_inr = foreign_price * rate
-    
-    # Bank Fee buffer (approx 2% for forex cards)
-    bank_fee = real_cost_inr * 0.02
-    total_cost = real_cost_inr + bank_fee
-    
-    st.divider()
-    
-    st.metric(label="Real Cost in INR (Market Rate)", value=f"₹ {real_cost_inr:,.2f}")
-    st.caption(f"Exchange Rate used: {rate:.4f}")
-    
-    st.warning(f"⚠️ Est. Cost with 2% Bank Fee: **₹ {total_cost:,.2f}**")
-    
-    st.markdown("""
-    **Strategy:**
-    1. Go to Skyscanner/Google Flights.
-    2. Change currency (Top Right) to **the one selected above**.
-    3. If the price shown there is lower than `₹ {total_cost}`, **BOOK IT!**
-    """)
+    # --- FULL DATA TABLE ---
+    st.subheader("📊 Global Arbitrage Opportunity Table")
+    st.dataframe(df_sorted, use_container_width=True, hide_index=True)
 
-# --- BOTTOM: VISUAL TRENDS ---
-st.divider()
-st.subheader("📉 Market Volatility Map (Lower is Better)")
-fig = px.bar(
-    df_sorted,
-    x="Currency",
-    y="Deviation %",
-    color="Deviation %",
-    color_continuous_scale=["green", "grey", "red"],
-    text_auto='.2s'
-)
-st.plotly_chart(fig, use_container_width=True)
+    # Charting the Loophole
+    fig = px.bar(df_sorted, x="Currency", y="Arb Gap %", color="Arb Gap %", 
+                 title="Currency Devaluation (Higher = Better Flight Deal)",
+                 color_continuous_scale="Greens")
+    st.plotly_chart(fig, use_container_width=True)
+
+else:
+    st.error("Financial markets are currently throttled. Please refresh in 2 minutes.")
+
+st.sidebar.markdown("""
+**1% Strategy Guide:**
+1. Find a **🟢 LOOPHOLE** currency.
+2. Use a VPN to set your location to that country.
+3. Use the airline's **local** website (e.g. .com.tr for Turkey).
+4. Pay in the local currency. Your Indian card will convert it at the live rate, saving you the 'India Premium'.
+""")
